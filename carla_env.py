@@ -37,29 +37,28 @@ mp_reward = settings.REWARD_FROM_MP
 tp_reward = settings.REWARD_FROM_TP
 serv_resx = settings.SERV_RESX
 serv_resy = settings.SERV_RESY
-def reload_world2(results_queue, lock):
-    client = carla.Client('localhost', 2000)
-    with lock:
-        old_world = client.get_world()
-        if old_world is not None:
-            prev_world_id = old_world.id
-            del old_world
-        else:
-            prev_world_id = None
-        print("Load world:")
-        client.load_world('Town03')
-        time.sleep(10)
-        print("Get world:")
-        tries = 3
-        world = client.get_world()
-        while prev_world_id == world.id and tries > 0:
-            tries -= 1
-            time.sleep(1)
-            world = client.get_world()
 
-    del world
-    del client
-    results_queue.put(1)
+# def reload_world2(results_queue):
+#     client = carla.Client('localhost', 2000)
+#     old_world = client.get_world()
+#     if old_world is not None:
+#         prev_world_id = old_world.id
+#         del old_world
+#     else:
+#         prev_world_id = None
+#     print("Load world:")
+#     client.load_world('Town03')
+#     print("Get world:")
+#     tries = 3
+#     world = client.get_world()
+#     while prev_world_id == world.id and tries > 0:
+#         tries -= 1
+#         time.sleep(1)
+#         world = client.get_world()
+
+#     del world
+#     del client
+#     results_queue.put(1)
 
 def start_carla_server(args):
     return subprocess.Popen(f'CarlaUE4.exe ' + args, cwd=settings.CARLA_PATH, shell=True)
@@ -75,7 +74,7 @@ class CarlaEnv:
         #start_carla_server(f'-windowed -carla-server -fps=60 -ResX={serv_resx} -ResY={serv_resy} -quality-level=Low '
         #                   f'-carla-world-port={port}')
         self.client = carla.Client("localhost", port)
-        self.client.set_timeout(300.0)
+        self.client.set_timeout(30.0)
 
         # Enable to use colors
         self.log = ColoredPrint()
@@ -756,57 +755,39 @@ class CarlaEnv:
     
 
 
-    def reload_world(self, manager):
+    def reload_world(self):
         """
         Rest variables at the end of each episode
         """
         # self.world = self.client.get_world()
         self.destroy_agents()
         self.actor_list = []
-        # PC
-        # old_world = client.get_world()
-        # if old_world is not None:
-        #     prev_world_id = old_world.id
-        #     del old_world
-        # else:
-        #     prev_world_id = None
-        # print("Load world:")
 
-        # print("Get world:")
-        # tries = 3
-
-        results_queue = manager.Queue()
-        lock = manager.Lock()
-        p = mp.Process(target=reload_world2, args=(results_queue, lock))
-        p.start()
-        p.join()
+        # results_queue = mp.Queue()
+        # while 1:
+        #     p = mp.Process(target=reload_world2, args=(results_queue,))
+        #     p.start()
+        #     p.join()
 
 
-                # Get a single frame form the environment - from a spawn point
-        if results_queue.empty():
-            print(f'Process failed')
-            print("checkpoint2")
+        #             # Get a single frame form the environment - from a spawn point
+        #     if results_queue.empty():
+        #         print(f'Process failed')
+        #         # try to remove 'core.*' files
+        #         for core_file in glob.glob(os.path.join(os.getcwd(), 'core.*')):
+        #             os.remove(core_file)
 
-            # try to remove 'core.*' files
-            for core_file in glob.glob(os.path.join(os.getcwd(), 'core.*')):
-                os.remove(core_file)
-            
-            print("checkpoint3")
+        #         time.sleep(float(os.getenv('CARLA_SERVER_START_PERIOD', '30.0')))
+        #         continue
+        #     else:
+        #         # empty the queue
+        #         self.client = carla.Client('localhost', 2000)
+        #         self.world = self.client.get_world()
+        #         results_queue.get()
+        #         break
+        # print("Env is clear")
+        self.client.reload_world()
 
-            # assume that the server will restart
-            # time.sleep(float(os.getenv('CARLA_SERVER_START_PERIOD', '30.0')))
-            # time.sleep(float(os.getenv('CARLA_SERVER_START_PERIOD', '300.0')))
-            time.sleep(180)
-            print("checkpoint4")
-        else:
-            # empty the queue
-            results_queue.get()
-        print("Env is clear")
-        # while prev_world_id == self.world.id and tries > 0:
-        #     tries -= 1
-        #     time.sleep(1)
-        #     self.world = self.client.get_world()
-        # self.world = self.client.reload_world()
         self.collision_history_list = []
         # History of crossing a lane markings
         self.invasion_history_list = []
@@ -829,8 +810,7 @@ class CarlaEnv:
         Rest environment at the end of each episode
         :return:
         """
-        manager = mp.Manager()
-        self.reload_world(manager)
+        self.reload_world()
     
         
         if self.scenario:

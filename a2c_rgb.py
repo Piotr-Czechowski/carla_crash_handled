@@ -8,9 +8,12 @@ The A2C's high-level flow:
 """
 
 import glob
+import pdb
 import time
 import numpy as np
 import os
+import os
+
 from collections import namedtuple
 import torch
 import torch.nn.functional as F
@@ -241,6 +244,12 @@ class DeepActorCriticAgent(mp.Process):
 
         self.trajectory.clear()
         self.rewards.clear()
+    def handle_crash(self, episode, results_queue, env_namespace):
+        print("Take care of env")
+        state_rgb = env_namespace.environment.reset()
+        
+        results_queue.put(1)
+        
 
     def train(self):
         # Loading the model
@@ -253,13 +262,31 @@ class DeepActorCriticAgent(mp.Process):
         
         episode_idx = 0
         server_failed = 0
+
+        results_queue = mp.Queue()
+        manager = mp.Manager()
+        env_namespace = manager.Namespace()     
+        env_namespace.environment = self.environment
         for episode in range(100000):
-            print("Take care of env")
-            # p = mp.Process(target=self.environment.reset, args=(episode, results_queue, state_rgb_q))
-            # p.start()
-            # p.join()
+
+            p = mp.Process(target=self.handle_crash, args=(episode, results_queue, env_namespace))
+            p.start()
+            p.join()
             state_rgb = self.environment.reset()
-            print("checkpoint1")
+            if results_queue.empty():
+                print(f'Process failed for episode {episode_idx}')
+                server_failed += 1
+                # try to remove 'core.*' files
+                for core_file in glob.glob(os.path.join(os.getcwd(), 'core.*')):
+                    os.remove(core_file)
+                # assume that the server will restart
+                time.sleep(float(os.getenv('CARLA_SERVER_START_PERIOD', '30.0')))
+                continue
+            else:
+                # empty the queue
+                results_queue.get()
+                episode_idx += 1
+            state_rgb = self.environment.reset()
 
             state_rgb = state_rgb / 255.0  # resize the tensor to [0, 1]
 
@@ -326,7 +353,7 @@ class DeepActorCriticAgent(mp.Process):
                                                                                              ep_reward,
                                                                                              np.mean(episode_rewards),
                                                                                              self.best_reward))
-            #writer.add_scalar("ep_reward", ep_reward, episode)
+            # writer.add_scalar("ep_reward", ep_reward, episode)
 
     def save(self, name):
         model_file_name = name + ".pth"
