@@ -268,7 +268,7 @@ class DeepActorCriticself(mp.Process):
               " which fetched a best mean reward of:", self.best_mean_reward,
               " and an all time best reward of:", self.best_reward)
         
-def handle_crash(results_queue, episode_idx, lock, server_failed):
+def handle_crash(results_queue, episode_idx, server_failed):
     wandb.init(
     # set the wandb project where this run will be logged
     project="A_to_B",
@@ -290,77 +290,77 @@ def handle_crash(results_queue, episode_idx, lock, server_failed):
     num_improved_episodes_before_checkpoint = 0  # To keep track of the num of ep with higher perf to save model
     
     while 1:
-        with lock:
-            episode_idx.value += 1
+        # with lock:
+        episode_idx.value += 1
 
-            state_rgb = agent.environment.reset()
-            state_rgb = state_rgb / 255.0  # resize the tensor to [0, 1]
+        state_rgb = agent.environment.reset()
+        state_rgb = state_rgb / 255.0  # resize the tensor to [0, 1]
 
-            done = False
-            ep_reward = 0.0 
-            step_num = 0  # used to yield the optimize method
-            actions_counter = dict()
+        done = False
+        ep_reward = 0.0 
+        step_num = 0  # used to yield the optimize method
+        actions_counter = dict()
 
-            # Calculate how many each action was taken
-            for action in ac.ACTIONS_NAMES.values():
-                actions_counter[action] = 0
+        # Calculate how many each action was taken
+        for action in ac.ACTIONS_NAMES.values():
+            actions_counter[action] = 0
 
-            while not done:
-                action = agent.get_action(state_rgb)
-                if agent.action_type == 'discrete':
-                    actions_counter[ac.ACTIONS_NAMES[agent.environment.action_space[action]]] += 1
-
-                new_state, reward, done = agent.environment.step(action)
-                new_state = new_state / 255  # resize the tensor to [0, 1]
-
-                agent.rewards.append(reward)
-                ep_reward += reward
-                step_num += 1
-
-                if step_num >= 5 or done:
-                    agent.optimize(new_state, done)
-                    step_num = 0
-
-                state_rgb = new_state
-                agent.global_step_num += 1
-                #writer.add_scalar("reward", reward, self.global_step_num)
-
+        while not done:
+            action = agent.get_action(state_rgb)
             if agent.action_type == 'discrete':
-                print(str(actions_counter))
+                actions_counter[ac.ACTIONS_NAMES[agent.environment.action_space[action]]] += 1
 
-            episode_rewards.append(ep_reward)
-            
-            
-            if ep_reward > agent.best_reward:
-                agent.best_reward = ep_reward
-            if np.mean(episode_rewards) > prev_checkpoint_mean_ep_rew:
-                num_improved_episodes_before_checkpoint += 1
-            if num_improved_episodes_before_checkpoint >= 3:
-                prev_checkpoint_mean_ep_rew = np.mean(episode_rewards)
-                agent.best_mean_reward = np.mean(episode_rewards)
-                if not os.path.exists('improved_models'):
-                    os.mkdir('improved_models')
-                save_path = os.getcwd() + '/improved_models'
-                file_name = f"{episode_idx.value}_a-b_{agent.camera_type}_{agent.action_type}_gamma-{agent.gamma}_lr-{agent.lr}"
-                cp_name = os.path.join(save_path, file_name)
-                agent.save(cp_name) # Save the model when it improves
-                num_improved_episodes_before_checkpoint = 0
-            agent.save(model_incr_save)
-            if episode_idx.value % 100 == 0:  # Save the model per 100 episodes
-                agent.save(f"100_a-b_{agent.camera_type}_{agent.action_type}_gamma-{agent.gamma}_lr-{agent.lr}")
-            if episode_idx.value % 250 == 0:
-                if not os.path.exists('models'):
-                    os.mkdir('models')
-                save_path = os.getcwd() + '/models'
-                file_name = f"{episode_idx.value}_a-b_{agent.camera_type}_{agent.action_type}_gamma-{agent.gamma}_lr-{agent.lr}"
-                cp_name = os.path.join(save_path, file_name)
-                agent.save(cp_name)
+            new_state, reward, done = agent.environment.step(action)
+            new_state = new_state / 255  # resize the tensor to [0, 1]
 
-            wandb.log({"episode": episode_idx.value, "reward": ep_reward})
-            print("Episode: {} \t ep_reward:{} \t mean_ep_rew:{}\t best_ep_reward:{}".format(episode_idx.value,
-                                                                                                ep_reward,
-                                                                                                np.mean(episode_rewards),
-                                                                                                agent.best_reward))        
+            agent.rewards.append(reward)
+            ep_reward += reward
+            step_num += 1
+
+            if step_num >= 5 or done:
+                agent.optimize(new_state, done)
+                step_num = 0
+
+            state_rgb = new_state
+            agent.global_step_num += 1
+            #writer.add_scalar("reward", reward, self.global_step_num)
+
+        if agent.action_type == 'discrete':
+            print(str(actions_counter))
+
+        episode_rewards.append(ep_reward)
+        
+        
+        if ep_reward > agent.best_reward:
+            agent.best_reward = ep_reward
+        if np.mean(episode_rewards) > prev_checkpoint_mean_ep_rew:
+            num_improved_episodes_before_checkpoint += 1
+        if num_improved_episodes_before_checkpoint >= 3:
+            prev_checkpoint_mean_ep_rew = np.mean(episode_rewards)
+            agent.best_mean_reward = np.mean(episode_rewards)
+            if not os.path.exists('improved_models'):
+                os.mkdir('improved_models')
+            save_path = os.getcwd() + '/improved_models'
+            file_name = f"{episode_idx.value}_a-b_{agent.camera_type}_{agent.action_type}_gamma-{agent.gamma}_lr-{agent.lr}"
+            cp_name = os.path.join(save_path, file_name)
+            agent.save(cp_name) # Save the model when it improves
+            num_improved_episodes_before_checkpoint = 0
+        agent.save(model_incr_save)
+        if episode_idx.value % 100 == 0:  # Save the model per 100 episodes
+            agent.save(f"100_a-b_{agent.camera_type}_{agent.action_type}_gamma-{agent.gamma}_lr-{agent.lr}")
+        if episode_idx.value % 250 == 0:
+            if not os.path.exists('models'):
+                os.mkdir('models')
+            save_path = os.getcwd() + '/models'
+            file_name = f"{episode_idx.value}_a-b_{agent.camera_type}_{agent.action_type}_gamma-{agent.gamma}_lr-{agent.lr}"
+            cp_name = os.path.join(save_path, file_name)
+            agent.save(cp_name)
+
+        wandb.log({"episode": episode_idx.value, "reward": ep_reward})
+        print("Episode: {} \t ep_reward:{} \t mean_ep_rew:{}\t best_ep_reward:{}".format(episode_idx.value,
+                                                                                            ep_reward,
+                                                                                            np.mean(episode_rewards),
+                                                                                            agent.best_reward))        
     wandb.finish()
     del world
     del client
@@ -371,22 +371,23 @@ if __name__ == "__main__":
     mp.set_start_method('spawn')
     results_queue = mp.Queue()
     manager = mp.Manager()
-    episode_idx = manager.Value('i', 0)
-    lock = manager.Lock()
+    episode_idx = manager.Value('i', 815)
+    # lock = manager.Lock()
     server_failed = manager.Value('i', 0)
     while 1:   
-        p = mp.Process(target=handle_crash, args=(results_queue, episode_idx, lock, server_failed))
+        # p = mp.Process(target=handle_crash, args=(results_queue, episode_idx, lock, server_failed))
+        p = mp.Process(target=handle_crash, args=(results_queue, episode_idx, server_failed))
         p.start()
         p.join()
         if results_queue.empty():
             server_failed.value += 1
-            with lock:
-                print(f'Process failed for episode {episode_idx.value} .')
-                print(f'Process failed for the {server_failed.value} time.')
+            # with lock:
+            print(f'Process failed for episode {episode_idx.value} .')
+            print(f'Process failed for the {server_failed.value} time.')
 
             # try to remove 'core.*' files
             for core_file in glob.glob(os.path.join(os.getcwd(), 'core.*')):
-                os.remove(core_file)
+               os.remove(core_file)
 
             # assume that the server will restart
             time.sleep(float(os.getenv('CARLA_SERVER_START_PERIOD', '30.0')))
@@ -394,6 +395,6 @@ if __name__ == "__main__":
         else:
             # empty the queue
             results_queue.get()
-            with lock:
-                episode_idx += 1
+            # with lock:
+            episode_idx += 1
 

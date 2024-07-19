@@ -786,7 +786,7 @@ class CarlaEnv:
         #         results_queue.get()
         #         break
         # print("Env is clear")
-        self.client.reload_world()
+        self.world = self.client.reload_world()
 
         self.collision_history_list = []
         # History of crossing a lane markings
