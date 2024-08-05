@@ -739,9 +739,9 @@ class CarlaEnv:
         mp_distances = [self._calculate_distance_locations(vehicle_location, x[0]) for x in self.stat_reward_mp]
         mp_min = min(mp_distances)
         mp_index = mp_distances.index(mp_min)
-
+        print("mp_min: ", mp_min)
         # If we are close to middle point and the reward was not already obtained
-        if mp_min < 2.5 and self.stat_reward_mp[mp_index][1] == 0:
+        if mp_min < 3 and self.stat_reward_mp[mp_index][1] == 0:
             self.stat_reward_mp[mp_index][1] = 1
 
             # If we arrive to the terminal point
@@ -786,7 +786,25 @@ class CarlaEnv:
         #         results_queue.get()
         #         break
         # print("Env is clear")
-        self.world = self.client.reload_world()
+
+        old_world = self.client.get_world()
+        if old_world is not None:
+            prev_world_id = old_world.id
+            del old_world
+        else:
+            prev_world_id = None
+
+        print("Load world:")
+        self.client.load_world('Town03')
+
+        print("Get world:")
+        tries = 3
+        self.world = self.client.get_world()
+        while prev_world_id == self.world.id and tries > 0:
+            tries -= 1
+            time.sleep(1)
+            self.world = self.client.get_world()
+        # self.world = self.client.reload_world()
 
         self.collision_history_list = []
         # History of crossing a lane markings
@@ -895,7 +913,7 @@ class CarlaEnv:
         if self.step_counter >= how_many_steps:
             self.done = True
 
-        return self.front_camera, reward, self.done
+        return self.front_camera, reward, self.done, route_distance
 
     def destroy_agents(self):
         """
@@ -907,5 +925,6 @@ class CarlaEnv:
             if actor.is_alive:
                 actor.destroy()
         self.actor_list.clear()
+        
 
 
