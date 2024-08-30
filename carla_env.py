@@ -2,6 +2,7 @@ import glob
 import os
 import pdb
 import random
+#import wandb
 import sys
 import time
 import math
@@ -63,6 +64,21 @@ serv_resy = settings.SERV_RESY
 def start_carla_server(args):
     return subprocess.Popen(f'CarlaUE4.exe ' + args, cwd=settings.CARLA_PATH, shell=True)
 
+def remove_pictures():
+    folder_path = 'A_to_B/camera_rgb_outputs'
+    if not os.path.isdir(folder_path):
+        return
+    # Iteruj przez wszystkie pliki w folderze i usuń je
+    for filename in os.listdir(folder_path):
+        file_path = os.path.join(folder_path, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)  # Usunięcie pliku
+            elif os.path.isdir(file_path):
+                os.rmdir(file_path)  # Usunięcie pustego folderu (opcjonalnie)
+        except Exception as e:
+            print(f'Nie można usunąć {file_path}. Powód: {e}')
+
 
 class CarlaEnv:
     """
@@ -75,7 +91,8 @@ class CarlaEnv:
         #                   f'-carla-world-port={port}')
         self.client = carla.Client("localhost", port)
         self.client.set_timeout(30.0)
-
+        
+        #for debugging
         # Enable to use colors
         self.log = ColoredPrint()
 
@@ -88,8 +105,8 @@ class CarlaEnv:
         else:
             self.log.warn(f"Client version: {client_ver}, Server version: {server_ver}")
 
-        self.client.load_world('Town03')
-        self.world = self.client.get_world()
+        self.world = self.client.load_world('Town03')
+        # self.world = self.client.get_world()
         self.settings = self.world.get_settings()
         self.camera_type = camera
         self.blueprint_library = self.world.get_blueprint_library()
@@ -171,7 +188,7 @@ class CarlaEnv:
         elif self.scenario == 4:
             # Left turn
             sp = self.map.get_spawn_points()[12]
-            sp.location.y -= 30
+            sp.location.y -= 15
             self.spawn_point = carla.Transform(sp.location, sp.rotation)
 
         elif self.scenario == 5:
@@ -289,6 +306,7 @@ class CarlaEnv:
         """
 
         tesla = self.blueprint_library.filter('model3')[0]
+        tesla.set_attribute('role_name', 'ego')
         self.vehicle = self.world.try_spawn_actor(tesla, self.spawn_point)
         self.actor_list.append(self.vehicle)
 
@@ -314,7 +332,10 @@ class CarlaEnv:
 
         rgb_cam = self.world.spawn_actor(rgb_cam_bp, self.transform, attach_to=self.vehicle)
         self.actor_list.append(rgb_cam)
+        remove_pictures()
         rgb_cam.listen(lambda data: self.process_rgb_img(data))
+        # rgb_cam.listen(lambda data: data.save_to_disk('A_to_B/camera_rgb_outputs/%06d.png' % data.frame) )
+
 
     def process_rgb_img(self, image):
         """
@@ -322,6 +343,10 @@ class CarlaEnv:
         :param image: raw data from the rgb camera
         :return:
         """
+        os.makedirs('A_to_B/camera_rgb_outputs/', exist_ok=True)
+        image.save_to_disk('A_to_B/camera_rgb_outputs/%06d.png' % image.frame)
+
+
         i = np.array(image.raw_data)
         # Also returns alfa values - not only rgb
         i2 = i.reshape((self.resY, self.resX, 4))
@@ -739,11 +764,11 @@ class CarlaEnv:
         mp_distances = [self._calculate_distance_locations(vehicle_location, x[0]) for x in self.stat_reward_mp]
         mp_min = min(mp_distances)
         mp_index = mp_distances.index(mp_min)
-        print("mp_min: ", mp_min)
+
+        
         # If we are close to middle point and the reward was not already obtained
         if mp_min < 3 and self.stat_reward_mp[mp_index][1] == 0:
             self.stat_reward_mp[mp_index][1] = 1
-
             # If we arrive to the terminal point
             if mp_index == len(self.stat_reward_mp) - 1:
                 #                             done = True
@@ -794,10 +819,8 @@ class CarlaEnv:
         else:
             prev_world_id = None
 
-        print("Load world:")
         self.client.load_world('Town03')
 
-        print("Get world:")
         tries = 3
         self.world = self.client.get_world()
         while prev_world_id == self.world.id and tries > 0:
@@ -851,7 +874,7 @@ class CarlaEnv:
         self.add_line_invasion_sensor()
 
         self.vehicle.apply_control(carla.VehicleControl(throttle=1.0, brake=1.0))
-
+        time.sleep(2) # added PC
         time.sleep(0.5)
 
         while self.front_camera is None:
@@ -885,10 +908,10 @@ class CarlaEnv:
 
         route_distance = self.calculate_route_distance(vehicle_location)
         speed = self.calculate_speed()
-
+        print("Speed: ", speed)
         static_reward_from_mp = mp_reward
         mp_static_reward, self.done = self.static_reward_mp(vehicle_location, static_reward_from_mp)
-
+                
         # Was terminal state obtained?
         if self.done:
             terminal_state_reward = tp_reward

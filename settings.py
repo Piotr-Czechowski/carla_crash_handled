@@ -19,7 +19,7 @@ SLEEP_BETWEEN_ACTIONS = 0.2  # How many sec sleep between consecutive actions? E
 SHOW_CAM = False  # Vehicle's camera preview
 SERV_RESX = 640  # Server X resolution
 SERV_RESY = 480  # Server Y resolution
-SCENARIO = [1]  # List of scenarios on which the model is trained
+SCENARIO = [4]  # List of scenarios on which the model is trained
 
 """ 
 Specify scenario parameter or spawn_point and terminal_point parameters
@@ -39,7 +39,7 @@ after switch_scenario episodes there will be next scenario from the list
 # Rewards
 REWARD_FROM_TP = 500  # Static reward from arriving to the terminal point
 REWARD_FROM_MP = 100  # Static reward from arriving to the middle point
-REWARD_FROM_COL = -500  # Static reward from a collision
+REWARD_FROM_COL = -200  # Static reward from a collision
 REWARD_FROM_INV = -50  # Static reward from a line invasion
 # Speed and distance rewards are in the utils.py/reward_function
 

@@ -47,13 +47,14 @@ port = settings.PORT
 action_type = settings.ACTION_TYPE
 camera_type = settings.CAMERA_TYPE
 load_model = settings.LOAD_MODEL
-model_incr_load = 'A_to_B/PC_models/model_incr4.pth'
-model_incr_save = 'A_to_B/PC_models/model_incr4'
+model_incr_load = 'A_to_B/PC_models/model_9_turn_right_mean_500_copy_2.pth'
+model_incr_save = 'A_to_B/PC_models/model_9_turn_right_mean_500_copy_2'
 
 gamma = settings.GAMMA
 lr = settings.LR
 use_entropy = settings.USE_ENTROPY
 scenario = settings.SCENARIO
+
 
 # Transition - the representation of a single transition
 """
@@ -276,17 +277,18 @@ class DeepActorCriticAgent(mp.Process):
         
 def handle_crash(results_queue, episode_idx, server_failed, mean_reward):
     wandb.init(
-    # set the # wandb project where this run will be logged
+    # set the #wandb project where this run will be logged
     project="A_to_B",
     # create or extend already logged run:
     resume="allow",
-    id="run13",  
+    id="run28",  
 
     # track hyperparameters and run metadata
     config={
-    "name" : "run13_straight_line",
+    "name" : "run28_left_turn5-10",
     "learning_rate": lr
-    })
+    }
+    )
 
     agent = DeepActorCriticAgent()
     if os.path.isfile(model_incr_load):
@@ -326,13 +328,11 @@ def handle_crash(results_queue, episode_idx, server_failed, mean_reward):
             agent.rewards.append(reward)
             ep_reward += reward
             step_num += 1
-            wandb.log({"step reward": reward, "Route distance": route_distance})
+            print("Step number: ", step_num, "reward: ", reward, "ep_reward: ", ep_reward)
+            #wandb.log({"step reward": reward, "Route distance": route_distance})
             if step_num >= 5 or done:
                 actor_loss, critic_loss, actor_lr, critic_lr = agent.optimize(new_state, done)
-                wandb.log({ "actor_loss": actor_loss,
-                            "critic_loss": critic_loss,
-                            "actor_lr": actor_lr,
-                            "critic_lr": critic_lr})
+                #wandb.log({ "actor_loss": actor_loss, "critic_loss": critic_loss, "actor_lr": actor_lr,"critic_lr": critic_lr})
                 step_num = 0
 
             state_rgb = new_state
@@ -373,16 +373,13 @@ def handle_crash(results_queue, episode_idx, server_failed, mean_reward):
             cp_name = os.path.join(save_path, file_name)
             agent.save(cp_name)
 
-        wandb.log({"episode": episode_idx.value, 
-                   "reward": ep_reward, 
-                   "learning_rate": agent.lr, 
-                   "mean_reward": mean_reward.value})
+        wandb.log({"episode": episode_idx.value, "reward": ep_reward, "learning_rate": agent.lr, "mean_reward": mean_reward.value})
         print("Episode: {} \t ep_reward:{} \t mean_ep_rew:{}\t best_ep_reward:{}".format(episode_idx.value,
                                                                                             ep_reward,
                                                                                             # np.mean(episode_rewards),
                                                                                             mean_reward.value,
                                                                                             agent.best_reward))        
-    wandb.finish()
+    #wandb.finish()
     del world
     del client
     results_queue.put(1)
@@ -392,10 +389,10 @@ if __name__ == "__main__":
     mp.set_start_method('spawn')
     results_queue = mp.Queue()
     manager = mp.Manager()
-    episode_idx = manager.Value('i', 49)
+    episode_idx = manager.Value('i', 0)
     # lock = manager.Lock()
     server_failed = manager.Value('i', 0)
-    mean_reward = manager.Value('d', 850)
+    mean_reward = manager.Value('d', 0)
     while 1:   
         p = mp.Process(target=handle_crash, args=(results_queue, episode_idx, server_failed, mean_reward))
         p.start()
