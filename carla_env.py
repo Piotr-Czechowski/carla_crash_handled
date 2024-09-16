@@ -198,13 +198,14 @@ class CarlaEnv:
         elif self.scenario == 6:
             # Little straight line and left turn
             sp = self.map.get_spawn_points()[12]
-            sp.location.y -= 20
+            # sp.location.y -= 20
             self.spawn_point = carla.Transform(sp.location, sp.rotation)
 
         elif self.scenario == 7:
             # Long straight line and 2 right turns
-            self.spawn_point = self.map.get_spawn_points()[151]
-            self.goal_point = 169
+            self.spawn_point = self.map.get_spawn_points()[57]
+            # self.spawn_point = carla.Transform(sp.location, sp.rotation)
+            self.goal_point = 122
         else:
             self.log.err(f"Invalid params: scenario: {self.scenario} or sp: {sp}, tp:{tp},"
                          f" mp_d:{mp_d}")
@@ -227,6 +228,7 @@ class CarlaEnv:
             spectator_coordinates.x -= 3
             spectator_coordinates.y += 10
             spectator_coordinates.z += 50
+            pass
         else:
             spectator_coordinates.x += 10
             spectator_coordinates.y += 10
@@ -274,8 +276,10 @@ class CarlaEnv:
             self.goal_location_trans = carla.Transform(self.goal_location_loc)
 
         else:
-            self.goal_location_loc = way_points[self.goal_point].transform.location
-            self.goal_location_trans = way_points[self.goal_point].transform
+            # self.goal_location_loc = way_points[self.goal_point].transform.location
+            # self.goal_location_trans = way_points[self.goal_point].transform
+            self.goal_location_loc = carla.Location(x=-6.5, y=-44, z=0.0)
+            self.goal_location_trans = carla.Transform(self.goal_location_loc)
 
         self.route = planner.trace_route(self.spawn_point_loc, self.goal_location_loc)
 
@@ -332,7 +336,7 @@ class CarlaEnv:
 
         rgb_cam = self.world.spawn_actor(rgb_cam_bp, self.transform, attach_to=self.vehicle)
         self.actor_list.append(rgb_cam)
-        remove_pictures()
+        # remove_pictures()
         rgb_cam.listen(lambda data: self.process_rgb_img(data))
         # rgb_cam.listen(lambda data: data.save_to_disk('A_to_B/camera_rgb_outputs/%06d.png' % data.frame) )
 
@@ -343,8 +347,8 @@ class CarlaEnv:
         :param image: raw data from the rgb camera
         :return:
         """
-        os.makedirs('A_to_B/camera_rgb_outputs/', exist_ok=True)
-        image.save_to_disk('A_to_B/camera_rgb_outputs/%06d.png' % image.frame)
+        # os.makedirs('A_to_B/camera_rgb_outputs/', exist_ok=True)
+        # image.save_to_disk('A_to_B/camera_rgb_outputs/%06d.png' % image.frame)
 
 
         i = np.array(image.raw_data)
@@ -823,6 +827,12 @@ class CarlaEnv:
 
         tries = 3
         self.world = self.client.get_world()
+
+        spawn_points = self.world.get_map().get_spawn_points()
+        for i, spawn_point in enumerate(spawn_points):
+            location = spawn_point.location
+            self.world.debug.draw_string(location, str(i), draw_shadow=False, color=carla.Color(r=0, g=255, b=0), life_time=120.0)
+
         while prev_world_id == self.world.id and tries > 0:
             tries -= 1
             time.sleep(1)

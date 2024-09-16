@@ -47,8 +47,8 @@ port = settings.PORT
 action_type = settings.ACTION_TYPE
 camera_type = settings.CAMERA_TYPE
 load_model = settings.LOAD_MODEL
-model_incr_load = 'A_to_B/PC_models/model_9_turn_right_mean_500_copy_2.pth'
-model_incr_save = 'A_to_B/PC_models/model_9_turn_right_mean_500_copy_2'
+model_incr_load = 'A_to_B/PC_models/currently_trained/scenario7.pth'
+model_incr_save = 'A_to_B/PC_models/currently_trained/scenario7'
 
 gamma = settings.GAMMA
 lr = settings.LR
@@ -281,11 +281,11 @@ def handle_crash(results_queue, episode_idx, server_failed, mean_reward):
     project="A_to_B",
     # create or extend already logged run:
     resume="allow",
-    id="run28",  
+    id="run38",  
 
     # track hyperparameters and run metadata
     config={
-    "name" : "run28_left_turn5-10",
+    "name" : "run38_two_right_turns",
     "learning_rate": lr
     }
     )
