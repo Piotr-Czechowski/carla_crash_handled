@@ -389,10 +389,10 @@ if __name__ == "__main__":
     mp.set_start_method('spawn')
     results_queue = mp.Queue()
     manager = mp.Manager()
-    episode_idx = manager.Value('i', 0)
+    episode_idx = manager.Value('i', 5988)
     # lock = manager.Lock()
     server_failed = manager.Value('i', 0)
-    mean_reward = manager.Value('d', 0)
+    mean_reward = manager.Value('d', 365)
     while 1:   
         p = mp.Process(target=handle_crash, args=(results_queue, episode_idx, server_failed, mean_reward))
         p.start()
